@@ -12,23 +12,31 @@ from pprint import pprint
 ####################################
 # written by:   Tim Smith
 # e-mail:       tismith@extremenetworks.com
-# date:         3rd December 2021
-# version:      1.0.0
+# date:         25th April 2022
+# version:      2.0.0
 ####################################
 
 
-print("Enter your XIQ login credentials")
-XIQ_username = input("Email: ")
-XIQ_password = getpass.getpass("Password: ")
+## Enter Username and password
+#XIQ_username = "enter your ExtremeCloudIQ Username"
+#XIQ_password = "enter your ExtremeCLoudIQ password"
+####OR###
+## TOKEN permission needs - enduser
+XIQ_token = "****"
 
-print("\nMake sure the csv file is in the same folder as the python script.")
-filename = input("Please enter csv filename: ")
-
-print("\nMake sure the PPSK group exists in each VIQ.")
-usergroup_name = input("Please enter PPSK group name: ")
+usergroup_name = "enter usergroup name"
 
 exclude_ex_accounts = []
-XIQ_token = ''
+
+#-------------------------
+# logging
+PATH = os.path.dirname(os.path.abspath(__file__))
+logging.basicConfig(
+    filename='{}/XIQ-VIQ-sync.log'.format(PATH),
+    filemode='a',
+    level=os.environ.get("LOGLEVEL", "INFO"),
+    format= '%(asctime)s: %(name)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -41,6 +49,7 @@ def GetaccessToken(XIQ_username, XIQ_password):
     response = requests.post(url, headers=headers, data=payload)
     if response is None:
         log_msg = "ERROR: Not able to login into ExtremeCloudIQ - no response!"
+        logging.error(log_msg)
         raise TypeError(log_msg)
     if response.status_code != 200:
         log_msg = f"Error getting access token - HTTP Status Code: {str(response.status_code)}"
@@ -50,6 +59,7 @@ def GetaccessToken(XIQ_username, XIQ_password):
                 log_msg += f"\n\t{data['error_message']}"
         except:
             log_msg += ""
+        logging.error(f"{log_msg}")
         raise TypeError(log_msg)
     data = response.json()
 
@@ -60,42 +70,41 @@ def GetaccessToken(XIQ_username, XIQ_password):
 
     else:
         log_msg = "Unknown Error: Unable to gain access token"
+        logging.warning(log_msg)
         raise TypeError(log_msg)
 
-def retrievePPSKusers(pageSize, usergroupID):
-    #print("Retrieve all PPSK users  from ExtremeCloudIQ")
+def retrievePPSKUsers(pageSize, usergroupID):
     page = 1
+    pageCount = 1
+    firstCall = True
 
-    ppskusers = []
+    ppskUsers = []
 
-    while page < 1000:
+    while page <= pageCount:
         url = URL + "/endusers?page=" + str(page) + "&limit=" + str(pageSize) + "&user_group_ids=" + str(usergroupID)
-        #print("Retrieving next page of PPSK users from ExtremeCloudIQ starting at page " + str(page) + " url: " + url)
 
         # Get the next page of the ppsk users
         response = requests.get(url, headers=headers, verify = True)
         if response is None:
             log_msg = "Error retrieving PPSK users from XIQ - no response!"
+            logging.error(log_msg)
             raise TypeError(log_msg)
+
         elif response.status_code != 200:
             log_msg = f"Error retrieving PPSK users from XIQ - HTTP Status Code: {str(response.status_code)}"
-            try:
-                data = response.json()
-                if "error_message" in data:
-                    log_msg += f"\n\t{data['error_message']}"
-            except:
-                log_msg += ""
+            logging.error(log_msg)
+            logging.warning(f"\t\t{response.json()}")
             raise TypeError(log_msg)
-        rawList = response.json()['data']
-        #for name in rawList:
-        #    print(name)
-        #print("Retrieved " + str(len(rawList)) + " users on this page")
-        ppskusers = ppskusers + rawList
-        if len(rawList) == 0:
-            #print("Reached the final page - stopping to retrieve users ")
-            break
-        page = page + 1
-    return ppskusers
+
+        rawList = response.json()
+        ppskUsers = ppskUsers + rawList['data']
+
+        if firstCall == True:
+            pageCount = rawList['total_pages']
+            firstCall = False
+        print(f"completed page {page} of {rawList['total_pages']} collecting PPSK Users")
+        page = rawList['page'] + 1 
+    return ppskUsers
 
 def get_external_accounts():
     url = URL + "/account/external"
@@ -111,6 +120,7 @@ def get_external_accounts():
                 log_msg += f"\n\t{data['error_message']}"
         except:
             log_msg += ""
+        logging.error(log_msg)
         raise TypeError(log_msg)
     data = response.json()
     return(data)
@@ -129,6 +139,7 @@ def switch_XIQ_Account(account):
                 log_msg += f"\n\t{data['error_message']}"
         except:
             log_msg += ""
+        logging.error(log_msg)
         raise TypeError(log_msg)
     data = response.json()
 
@@ -139,6 +150,7 @@ def switch_XIQ_Account(account):
 
     else:
         log_msg = "Unknown Error: Unable to gain access token"
+        logging.warning(log_msg)
         raise TypeError(log_msg)
 
 def get_usergroup_id(usergroup_name):
@@ -156,6 +168,7 @@ def get_usergroup_id(usergroup_name):
                 log_msg += f"\n\t{data['error_message']}"
         except:
             log_msg += ""
+        logging.error(log_msg)
         raise TypeError(log_msg)
     data = response.json()
     # check defined name and get id
@@ -165,6 +178,7 @@ def get_usergroup_id(usergroup_name):
     if grpid:
         return grpid
     else:
+        logging.error(f"group {usergroup_name} not found")
         raise ValueError("Group Not found")
 
 def CreatePPSKuser(payload, name):
@@ -174,6 +188,7 @@ def CreatePPSKuser(payload, name):
     response = requests.post(url, headers=headers, data=payload, verify=True)
     if response is None:
         log_msg = "Error adding PPSK user - no response!"
+        logging.error(log_msg)
         raise TypeError(log_msg)
 
     elif response.status_code != 200:
@@ -184,9 +199,11 @@ def CreatePPSKuser(payload, name):
                 log_msg += f"\n\t{data['error_message']}"
         except:
             log_msg += ""
+        logging.error(log_msg)
         raise TypeError(log_msg)
 
     elif response.status_code ==200:
+        logging.info(f"successfully created PPSK user {name}")
         print(f"successfully created PPSK user {name}")
     #print(response)
 
@@ -196,6 +213,7 @@ def deleteuser(userId):
     response = requests.delete(url, headers=headers, verify=True)
     if response is None:
         log_msg = f"Error deleting PPSK user {userId} - no response!"
+        logging.error(log_msg)
         raise TypeError(log_msg)
     elif response.status_code != 200:
         log_msg = f"Error deleting PPSK user {userId} - HTTP Status Code: {str(response.status_code)}"
@@ -205,6 +223,7 @@ def deleteuser(userId):
                 log_msg += f"\n\t{data['error_message']}"
         except:
             log_msg += ""
+        logging.error(log_msg)
         raise TypeError(log_msg)
     elif response.status_code == 200:
         return 'Success'
@@ -212,23 +231,6 @@ def deleteuser(userId):
 
 def main():
     print("\n")
-    ##  load CSV file   ##
-    if os.path.isfile(PATH + '/' + filename):
-        try:
-            df = pd.read_csv(PATH + '/' + filename)
-        except:
-            print(f"failed to load file {filename}")
-            print("script exiting....")
-            raise SystemExit
-    else:
-        print(f"The file {filename} was not in {PATH}")
-        print("script exiting....")
-        raise SystemExit
-    
-    df = df.replace(np.nan," ")
-    filt = df['User Group Name'] == usergroup_name
-    mst_ppsk_users = (df.loc[filt])
-    
     ## Get token for Main Account ##
     if not XIQ_token:
         try:
@@ -242,6 +244,17 @@ def main():
             raise SystemExit  
     else:
         headers["Authorization"] = "Bearer " + XIQ_token 
+
+    ## get ppsk users for usergroup ##
+    try:
+        usergroupID= get_usergroup_id(usergroup_name)
+    except TypeError as e:
+        print(e)
+        raise SystemExit
+    except ValueError as e:
+        print(e)
+        raise SystemExit
+    mst_ppsk_users = retrievePPSKUsers(100, usergroupID)
 
     ## get external accounts ##
     ex_accts = get_external_accounts()
@@ -274,7 +287,7 @@ def main():
             continue
 
         try:
-            acc_ppsk_users = retrievePPSKusers(100,usergroupID)
+            acc_ppsk_users = retrievePPSKUsers(100,usergroupID)
         except TypeError as e:
             print(e)
             print(f"Failed to collect PPSK users on {account['alias']}.")
@@ -288,37 +301,32 @@ def main():
             print(f"Skipping {account['alias']}.")
             continue
         
-        for index, row in mst_ppsk_users.iterrows():
-            if any(row['User Name'] in x['user_name'] for x in acc_ppsk_users):
-                
-                print(f"User {row['User Name']} already exists, skipping user")
+ 
+        for row in mst_ppsk_users:
+            if any(row['user_name'] in x['user_name'] for x in acc_ppsk_users):
+                log_msg = (f"User {row['user_name']} already exists, skipping user")
+                logging.info(log_msg)
+                print(log_msg)
             else:
-                #print(row)
-                '''
-                Index(['User Name', 'User Group Name', 'User Type', 'Password', 'Email',
-                    'Delivery Email', 'Delivery Phone', 'Description', 'Expiration',
-                    'First Name', 'Last Name', 'Phone', 'Organization', 'Visiting Purpose',
-                    'PPSK', 'Password NT', 'Encrypted Password'],
-                     dtype='object')
-                     '''
+
                 payload = json.dumps({"user_group_id": usergroupID ,
-                "name": f"{row['First Name']} {row['Last Name']}",
-                "user_name": row['User Name'],
-                "organization": row['Organization'],
-                "visit_purpose": row['Visiting Purpose'],
-                "description": row['Description'],
-                "email_address": row['Email'],
-                "phone_number": row['Phone'],
-                "password": row['Password'],
+                "name": f"{row['name']}",
+                "user_name": row['user_name'],
+                "organization": row['organization'],
+                "visit_purpose": row['visit_purpose'],
+                "description": row['description'],
+                "email_address": row['email_address'],
+                "phone_number": row['phone_number'],
+                "password": row['password'],
                 "email_password_delivery": "",
                 "sms_password_delivery": ""})
                 try:
-                    CreatePPSKuser(payload, row['User Name'])
+                    CreatePPSKuser(payload, row['user_name'])
                 except TypeError as e:
-                    log_msg = f"failed to create {row['User Name']}: {e}"
+                    log_msg = f"failed to create {row['user_name']}: {e}"
                     print(log_msg)
                 except:
-                    log_msg = f"Unknown Error: Failed to create user {row['User Name']} - {row['Email']}"
+                    log_msg = f"Unknown Error: Failed to create user {row['user_name']} - {row['email_address']}"
                     print(log_msg)
         
         for acc_ppsk_user in acc_ppsk_users:

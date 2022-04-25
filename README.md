@@ -1,16 +1,30 @@
 # XIQ - Sync Externally Managed VIQ PPSK Users
-## PPSK_Sync.py
+## VIQ_PPSK_Sync.py
 ### Purpose
-This script will import a CSV export of PPSK Users from a VIQ and create those same PPSK Users in all Externally Managed VIQs. The name of the user group needs to be the same on all managed accounts, including the viq the export was from. If you have a specific Managed VIQ(s) you want to skip you can add the Name of the VIQ to the script to be excluded.
+This script will collect the PPSK Users from a the main VIQ account and create those same PPSK Users in all Externally Managed VIQs. The name of the user group needs to be the same on all managed accounts, including the viq they export from. If you have a specific Managed VIQ(s) you want to skip you can add the Name of the VIQ to the script to be excluded.
 ## User Input Data
-the exported csv file should be downloaded from the account to sync from. This csv file should be moved into the same folder as the script.
 
-Most of the user inputs will be done using prompts once the script is ran. 
+In order for the script to run successfully, the XIQ account username and password will need to be entered, or ideally, a token generated from that account with enduser permissions.
 
-When ran, the script will as the user for the XIQ login credentials, the name of the csv file, and the name of the PPSK group. 
-
+### XIQ username and password (This can be skipped if entering a generated token)
+>NOTE: The preferred method is to not include the username and password but use a token with specified permissions. In order to use a username and password, the #'s need to be removed at the beginning of the following lines.
+##### lines 20-22
+```
+## Enter Username and password
+#XIQ_username = "enter your ExtremeCloudIQ Username"
+#XIQ_password = "enter your ExtremeCLoudIQ password"
+```
+### XIQ token with enduser permission (Only needed if username and password are not provided.)
+```
+## TOKEN permission needs - enduser
+XIQ_token = "****"
+```
+### The name of the XIQ usergroup you would like to sync users.
+```
+usergroup_name = "enter usergroup name"
+```
 ### Managed VIQ(s) to skip (Optional)
->##### lines 30
+>##### lines 29
 ```
 exclude_ex_accounts = []
 ```
@@ -23,18 +37,9 @@ inside of the brackets enter the name of the VIQs you want to skip. Each name sh
 ## Script Outputs
 #### Terminal Window
 ```
-python PPSK_Sync.py 
-Enter your XIQ login credentials
-Email: timjsmith24@gmail.com
-Password: 
+python VIQ_PPSK_Sync.py 
 
-Make sure the csv file is in the same folder as the python script.
-Please enter csv filename: ExportedUsers.csv
-
-Make sure the PPSK group exists in each VIQ.
-Please enter PPSK group name: PPSK_Test
-
-
+completed page 1 of 1 collecting PPSK Users
 
 Starting VIQ JP_Lab...
 
@@ -53,5 +58,6 @@ successfully created PPSK user adele@smithhome.com
 successfully created PPSK user bauer@smithhome.com
 successfully created PPSK user tripp@smithhome.com
 ```
+
 The script will check to see if the user already exists. If it does, the user will be skipped.
 If a user exists in the PPSK Group and is not in the csv file, the script will delete the user from the PPSK Group.
