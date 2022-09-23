@@ -102,7 +102,10 @@ def retrievePPSKUsers(pageSize, usergroupID):
         if firstCall == True:
             pageCount = rawList['total_pages']
             firstCall = False
-        print(f"completed page {page} of {rawList['total_pages']} collecting PPSK Users")
+        if rawList['total_pages'] > 0:
+            print(f"completed page {page} of {rawList['total_pages']} collecting PPSK Users")
+        else:
+            print(f"There are no users in the PPSK user group")
         page = rawList['page'] + 1 
     return ppskUsers
 
@@ -330,8 +333,7 @@ def main():
                     print(log_msg)
         
         for acc_ppsk_user in acc_ppsk_users:
-            if acc_ppsk_user['user_name'] not in mst_ppsk_users.values:
-                
+            if not any(acc_ppsk_user['user_name'] == d['user_name'] for d in mst_ppsk_users):   
                 ## Delete PPSK user ##
                 try:
                     result= deleteuser(acc_ppsk_user['id'])
